@@ -9,7 +9,9 @@ import (
 )
 
 type (
-	Model struct{}
+	Model struct {
+		Id int16
+	}
 )
 
 func (m *Model) Migrate(model struct{}) error {
@@ -18,11 +20,11 @@ func (m *Model) Migrate(model struct{}) error {
 	if err != nil {
 		return err
 	}
+	defer conn.Close()
 
 	query := strings.Builder{}
 
 	t := reflect.TypeOf(model)
-	v := reflect.ValueOf(model)
 
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
@@ -30,11 +32,19 @@ func (m *Model) Migrate(model struct{}) error {
 		field_parse := strings.ToLower(field.Name)
 		type_parse := m.ParseType(field.Type.Name())
 
+		if query.Len() > 0 {
+			query.WriteString(", ")
+		}
+		query.WriteString(field_parse)
+		query.WriteString(" ")
+		query.WriteString(type_parse)
 	}
+
+	return nil
 }
 
 func (m *Model) Connect() (*sql.DB, error) {
-	db, err := sql.Open("sqlite", "app.db")
+	db, err := sql.Open("sqlite3", DatabaseName)
 	if err != nil {
 		return nil, err
 	}
