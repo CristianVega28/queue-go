@@ -36,3 +36,7 @@ type (
 		Model
 	}
 )
+
+func (queue Queue) GetModel() Model {
+	return queue.Model
+}

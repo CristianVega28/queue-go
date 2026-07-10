@@ -11,5 +11,5 @@ func Setup() error {
 	}
 	defer db.Close()
 
-	return err
+	return db.Ping()
 }

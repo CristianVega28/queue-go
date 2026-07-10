@@ -15,3 +15,7 @@ type (
 		Model
 	}
 )
+
+func (sp SP500) GetModel() Model {
+	return sp.Model
+}

@@ -2,6 +2,8 @@ package models
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -12,9 +14,12 @@ type (
 	Model struct {
 		Id int16
 	}
+	ModelI interface {
+		GetModel() Model
+	}
 )
 
-func (m *Model) Migrate(model struct{}) error {
+func (m *Model) Migrate(model ModelI) error {
 	conn, err := m.Connect()
 
 	if err != nil {
@@ -24,20 +29,48 @@ func (m *Model) Migrate(model struct{}) error {
 
 	query := strings.Builder{}
 
+	var table string
+
 	t := reflect.TypeOf(model)
 
-	for i := 0; i < t.NumField(); i++ {
+	if t.Kind() == reflect.Ptr {
+		if t.Elem().Kind() != reflect.Struct {
+			return errors.New("It isnt struct")
+		}
+	} else {
+		if t.Kind() != reflect.Struct {
+			return errors.New("It isnt struct")
+		}
+	}
+
+	if t.Kind() == reflect.Ptr {
+		table = t.Elem().Name()
+	} else {
+		table = t.Name()
+	}
+
+	columns := []string{"id INTEGER"}
+
+	for i := range t.NumField() {
 		field := t.Field(i)
 
-		field_parse := strings.ToLower(field.Name)
-		type_parse := m.ParseType(field.Type.Name())
+		if !field.Anonymous {
+			field_parse := strings.ToLower(field.Name)
+			type_parse := m.ParseType(field.Type.Name())
 
-		if query.Len() > 0 {
-			query.WriteString(", ")
+			columns = append(columns, fmt.Sprintf("%s %s", field_parse, type_parse))
 		}
-		query.WriteString(field_parse)
-		query.WriteString(" ")
-		query.WriteString(type_parse)
+	}
+
+	query.WriteString(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n  %s\n);", table, strings.Join(columns, ",\n  ")))
+
+	queryString := query.String()
+
+	fmt.Println(queryString)
+	_, err = conn.Exec(queryString)
+
+	if err != nil {
+		return err
 	}
 
 	return nil

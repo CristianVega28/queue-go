@@ -2,20 +2,14 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"queue-go/models"
 	"queue-go/server"
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "migrate" {
-		err := models.Setup()
-		if err != nil {
-			fmt.Println(err.Error())
-			return
-		}
-
-		fmt.Println("database queue-go.db created successfully")
+	err := models.Setup()
+	if err != nil {
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -27,7 +21,15 @@ func main() {
 		Handlers: server.Http.ServerMux(),
 	}
 
-	err := srv.Start()
+	mgt := models.Model{}
+
+	structMigrate := []models.ModelI{models.SP500{}, models.Queue{}}
+
+	for _, v := range structMigrate {
+		mgt.Migrate(v)
+	}
+
+	err = srv.Start()
 
 	if err != nil {
 		fmt.Println(err.Error())
