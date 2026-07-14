@@ -2,9 +2,8 @@ package models
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
-	"reflect"
+	"queue-go/utils"
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -31,23 +30,9 @@ func (m *Model) Migrate(model ModelI) error {
 
 	var table string
 
-	t := reflect.TypeOf(model)
+	t, _ := utils.ReflectStruct(model)
 
-	if t.Kind() == reflect.Ptr {
-		if t.Elem().Kind() != reflect.Struct {
-			return errors.New("It isnt struct")
-		}
-	} else {
-		if t.Kind() != reflect.Struct {
-			return errors.New("It isnt struct")
-		}
-	}
-
-	if t.Kind() == reflect.Ptr {
-		table = t.Elem().Name()
-	} else {
-		table = t.Name()
-	}
+	table = t.Name()
 
 	columns := []string{"id INTEGER"}
 
@@ -62,11 +47,10 @@ func (m *Model) Migrate(model ModelI) error {
 		}
 	}
 
-	query.WriteString(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n  %s\n);", table, strings.Join(columns, ",\n  ")))
+	query.WriteString(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n  %s\n);", strings.ToLower(table), strings.Join(columns, ",\n  ")))
 
 	queryString := query.String()
 
-	fmt.Println(queryString)
 	_, err = conn.Exec(queryString)
 
 	if err != nil {
@@ -93,4 +77,37 @@ func (m *Model) ParseType(typ string) string {
 	default:
 		return "VARCHAR"
 	}
+}
+
+func (m *Model) Columns(model ModelI) ([]string, error) {
+
+	t, _ := utils.ReflectStruct(model)
+
+	table := strings.ToLower(t.Name())
+
+	conn, err := m.Connect()
+
+	defer conn.Close()
+
+	var columns []string
+
+	rows, err := conn.Query(fmt.Sprintf("SELECT name FROM pragma_table_info('%s')", strings.ToLower(table)))
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var name string
+
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+
+		columns = append(columns, name)
+	}
+
+	return columns, nil
 }

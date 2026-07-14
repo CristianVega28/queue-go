@@ -1,15 +1,18 @@
 package main
 
 import (
-	"fmt"
+	"log/slog"
+	"queue-go/logger"
 	"queue-go/models"
 	"queue-go/server"
 )
 
 func main() {
+	logger.Setup()
+
 	err := models.Setup()
 	if err != nil {
-		fmt.Println(err.Error())
+		slog.Error("fallo al inicializar la base de datos", "err", err)
 		return
 	}
 
@@ -26,12 +29,14 @@ func main() {
 	structMigrate := []models.ModelI{models.SP500{}, models.Queue{}}
 
 	for _, v := range structMigrate {
-		mgt.Migrate(v)
+		if err := mgt.Migrate(v); err != nil {
+			slog.Error("fallo en la migración", "err", err)
+		}
 	}
 
-	err = srv.Start()
+	slog.Info("servidor iniciado", "url", "http://localhost:"+srv.Port)
 
-	if err != nil {
-		fmt.Println(err.Error())
+	if err := srv.Start(); err != nil {
+		slog.Error("el servidor se detuvo", "err", err)
 	}
 }
